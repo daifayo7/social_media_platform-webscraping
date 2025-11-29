@@ -1,22 +1,7 @@
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-from wordcloud import WordCloud
-import jieba
-from collections import Counter
-import re
-from datetime import datetime
-
-# 设置中文字体
-plt.rcParams['font.sans-serif'] = ['SimHei']
-plt.rcParams['axes.unicode_minus'] = False
-
-# 提取评论数据
-comments_data = {
+{
     "status_code": 0,
     "comments": [
-        # 这里插入您提供的完整JSON数据中的comments数组
-{
+        {
             "cid": "7569543503384036153",
             "text": "@薏湫 @漱江语 @我和我的贝斯",
             "aweme_id": "7568361402794287973",
@@ -150,7 +135,7 @@ comments_data = {
             "text_music_info": null,
             "image_list": null,
             "is_note_comment": 0,
-            "ip_label": "广东",      # ip 地域
+            "ip_label": "广东",
             "can_share": true,
             "item_comment_total": 347,
             "level": 1,
@@ -163,15 +148,15 @@ comments_data = {
         },
         {
             "cid": "7569599665823662906",
-            "text": "革命是要流血牺牲的",     # 评论文本
+            "text": "革命是要流血牺牲的",
             "aweme_id": "7568361402794287973",
-            "create_time": 1762434764,     # 发布时间
-            "digg_count": 4,               # 点赞数
+            "create_time": 1762434764,
+            "digg_count": 4,
             "status": 1,
             "user": {
                 "uid": "63916472199",
                 "short_id": "1480879554",
-                "nickname": "小道士",    #用户名
+                "nickname": "小道士",
                 "avatar_thumb": {
                     "uri": "100x100/aweme-avatar/mosaic-legacy_2ecb20007c4ac1728ff94",
                     "url_list": [
@@ -1262,200 +1247,10 @@ comments_data = {
             "早上好",
             "下午好",
             "晚上好"
-        # 由于篇幅限制，我在实际代码中会使用完整数据
-    ]
-},
+        ]
+    },
     "comment_config": {},
     "general_comment_config": {},
     "show_management_entry_point": 0,
     "folded_comment_count": 0
 }
-
-def extract_comments_info(comments_data):
-    """提取评论信息"""
-    comments_list = []
-
-    for comment in comments_data['comments']:
-        # 跳过空文本评论
-        if not comment.get('text', '').strip():
-            continue
-
-        comment_info = {
-            'cid': comment['cid'],
-            'text': comment['text'],
-            'create_time': datetime.fromtimestamp(comment['create_time']),
-            'digg_count': comment['digg_count'],
-            'user_nickname': comment['user']['nickname'],
-            'ip_label': comment.get('ip_label', '未知'),
-            'reply_comment_total': comment.get('reply_comment_total', 0)
-        }
-        comments_list.append(comment_info)
-
-    return pd.DataFrame(comments_list)
-
-
-# 创建DataFrame
-df = extract_comments_info(comments_data)
-print("数据概览:")
-print(f"总评论数: {len(df)}")
-print(f"时间范围: {df['create_time'].min()} 到 {df['create_time'].max()}")
-print("\n前5条评论:")
-print(df[['text', 'digg_count', 'ip_label']].head())
-
-# 1. 点赞数分布可视化
-plt.figure(figsize=(15, 10))
-
-plt.subplot(2, 3, 1)
-plt.hist(df['digg_count'], bins=20, alpha=0.7, color='skyblue', edgecolor='black')
-plt.title('评论点赞数分布')
-plt.xlabel('点赞数')
-plt.ylabel('频次')
-plt.grid(True, alpha=0.3)
-
-# 2. 地域分布
-plt.subplot(2, 3, 2)
-region_counts = df['ip_label'].value_counts()
-plt.pie(region_counts.values, labels=region_counts.index, autopct='%1.1f%%')
-plt.title('评论地域分布')
-
-# 3. 文本长度分析
-df['text_length'] = df['text'].str.len()
-plt.subplot(2, 3, 3)
-plt.hist(df['text_length'], bins=15, alpha=0.7, color='lightgreen', edgecolor='black')
-plt.title('评论文本长度分布')
-plt.xlabel('文本长度')
-plt.ylabel('频次')
-plt.grid(True, alpha=0.3)
-
-# 4. 点赞数与文本长度关系
-plt.subplot(2, 3, 4)
-plt.scatter(df['text_length'], df['digg_count'], alpha=0.6, color='coral')
-plt.title('文本长度 vs 点赞数')
-plt.xlabel('文本长度')
-plt.ylabel('点赞数')
-plt.grid(True, alpha=0.3)
-
-# 5. 时间趋势分析
-plt.subplot(2, 3, 5)
-df['date'] = df['create_time'].dt.date
-daily_comments = df.groupby('date').size()
-plt.plot(daily_comments.index, daily_comments.values, marker='o', linewidth=2)
-plt.title('每日评论数量趋势')
-plt.xlabel('日期')
-plt.ylabel('评论数')
-plt.xticks(rotation=45)
-
-# 6. 高点赞评论分析
-plt.subplot(2, 3, 6)
-top_comments = df.nlargest(5, 'digg_count')[['text', 'digg_count', 'ip_label']]
-# 简化文本显示
-top_comments['short_text'] = top_comments['text'].str[:10] + '...'
-y_pos = range(len(top_comments))
-plt.barh(y_pos, top_comments['digg_count'])
-plt.yticks(y_pos, top_comments['short_text'])
-plt.title('高点赞评论TOP5')
-plt.xlabel('点赞数')
-
-plt.tight_layout()
-plt.show()
-
-
-# 文本内容分析
-def analyze_text_content(df):
-    """分析文本内容"""
-    # 合并所有文本
-    all_text = ' '.join(df['text'].dropna())
-
-    # 使用jieba分词
-    words = jieba.cut(all_text)
-
-    # 过滤停用词和短词
-    stop_words = {'的', '了', '在', '是', '我', '有', '和', '就', '不', '人', '都', '一', '一个', '上', '也', '很',
-                  '到', '说', '要', '去', '你', '会', '着', '没有', '看', '好', '自己', '这'}
-    filtered_words = [word for word in words if len(word) > 1 and word not in stop_words]
-
-    # 词频统计
-    word_freq = Counter(filtered_words)
-
-    return word_freq
-
-
-# 生成词云
-def generate_wordcloud(word_freq):
-    """生成词云图"""
-    wordcloud = WordCloud(
-        font_path='simhei.ttf',
-        width=800,
-        height=400,
-        background_color='white',
-        max_words=100
-    ).generate_from_frequencies(word_freq)
-
-    plt.figure(figsize=(12, 6))
-    plt.imshow(wordcloud, interpolation='bilinear')
-    plt.axis('off')
-    plt.title('评论关键词词云')
-    plt.show()
-
-
-# 情感倾向分析（简单版）
-def simple_sentiment_analysis(df):
-    """简单情感分析"""
-    positive_words = ['支持', '好', '喜欢', '赞', '棒', '优秀', '感谢', '爱', '美丽', '开心']
-    negative_words = ['反对', '不好', '讨厌', '垃圾', '恶心', '恨', '丑陋', '伤心', '极端', '流血', '牺牲']
-
-    sentiments = []
-    for text in df['text']:
-        pos_count = sum(1 for word in positive_words if word in text)
-        neg_count = sum(1 for word in negative_words if word in text)
-
-        if pos_count > neg_count:
-            sentiments.append('积极')
-        elif neg_count > pos_count:
-            sentiments.append('消极')
-        else:
-            sentiments.append('中性')
-
-    df['sentiment'] = sentiments
-    return df
-
-
-# 执行分析
-print("\n=== 文本分析 ===")
-word_freq = analyze_text_content(df)
-print("高频词汇TOP10:")
-for word, count in word_freq.most_common(10):
-    print(f"{word}: {count}次")
-
-# 生成词云
-generate_wordcloud(word_freq)
-
-# 情感分析
-df = simple_sentiment_analysis(df)
-
-# 情感分布可视化
-plt.figure(figsize=(10, 6))
-sentiment_counts = df['sentiment'].value_counts()
-plt.bar(sentiment_counts.index, sentiment_counts.values, color=['green', 'gray', 'red'])
-plt.title('评论情感分布')
-plt.ylabel('评论数量')
-for i, v in enumerate(sentiment_counts.values):
-    plt.text(i, v + 0.1, str(v), ha='center', va='bottom')
-plt.show()
-
-# 详细数据报告
-print("\n=== 详细数据报告 ===")
-print(f"总评论数: {len(df)}")
-print(f"总点赞数: {df['digg_count'].sum()}")
-print(f"平均点赞数: {df['digg_count'].mean():.2f}")
-print(f"涉及地域数量: {df['ip_label'].nunique()}")
-print(f"最长评论: {df.loc[df['text_length'].idxmax(), 'text'][:50]}...")
-print(f"最高点赞评论: {df.loc[df['digg_count'].idxmax(), 'text']}")
-
-# 地域分析详情
-print("\n=== 地域分析 ===")
-region_analysis = df.groupby('ip_label').agg({
-    'digg_count': ['count', 'sum', 'mean'],
-    'text_length': 'mean'
-}).round(2)
-print(region_analysis)
